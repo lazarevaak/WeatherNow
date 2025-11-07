@@ -8,9 +8,10 @@ import 'dart:convert';
  * Создайте приложение для отображения погоды.
  * 
  * 1. Реализуйте fetchWeather() для получения данных из API wttr.in
- * 2. Создайте layout используя: Column, Expanded/Flexible, SizedBox, Text, Image, FutureBuilder
+ * 2. Создайте layout используя: Column, Row, Expanded/Flexible, SizedBox, Text, Image, FutureBuilder, Stack
  * 3. Отобразите: город, иконку, температуру, описание
- * 4. Добавьте кнопку обновления
+ *    - Используйте Row для горизонтальной компоновки информации о погоде (иконка и температура)
+ * 4. Добавьте кнопку обновления внизу экрана используя Stack
  * 
  * ВАЖНО: Не допускайте большую вложенность виджетов. Выносите компоненты 
  * в отдельные виджеты (StatelessWidget или отдельные методы).
@@ -68,20 +69,49 @@ class _WeatherScreenState extends State<WeatherScreen> {
     throw UnimplementedError();
   }
 
+  // Функция для выбора иконки в зависимости от описания погоды
+  IconData _getWeatherIcon(String description) {
+    final desc = description.toLowerCase();
+    if (desc.contains('sunny') || desc.contains('clear')) {
+      return Icons.wb_sunny;
+    } else if (desc.contains('cloudy') || desc.contains('overcast')) {
+      return Icons.cloud;
+    } else if (desc.contains('rain') || desc.contains('drizzle')) {
+      return Icons.grain;
+    } else if (desc.contains('snow')) {
+      return Icons.ac_unit;
+    } else if (desc.contains('fog') || desc.contains('mist')) {
+      return Icons.filter_drama;
+    } else if (desc.contains('thunder')) {
+      return Icons.flash_on;
+    } else {
+      return Icons.wb_cloudy;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Погода'),
+        centerTitle: true,
+        title: const Text(
+          'Погода',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        ),
       ),
       body: Column(
         children: [
-          // TODO: Заголовок
-
           // TODO: Expanded с FutureBuilder для отображения данных о погоде
+          // Используйте Stack для размещения кнопки внизу поверх контента
           Expanded(
-            child: Center(
-              child: Text('Здесь будет FutureBuilder'),
+            child: Stack(
+              children: [
+                // TODO: FutureBuilder с данными о погоде
+                Center(
+                  child: Text('Здесь будет FutureBuilder'),
+                ),
+                // TODO: Кнопка обновления внизу экрана используя Positioned
+              ],
             ),
           ),
         ],
@@ -94,8 +124,9 @@ class _WeatherScreenState extends State<WeatherScreen> {
  * ПОДСКАЗКИ:
  * 
  * ВИДЖЕТЫ КОМПОНОВКИ:
- * Column(children: [...]), Expanded(child: Widget), Flexible(flex: 1, child: Widget)
+ * Column(children: [...]), Row(children: [...]), Expanded(child: Widget), Flexible(flex: 1, child: Widget)
  * SizedBox(height: 24), Text('Текст'), Image.network('https://...', width: 100, height: 100)
+ * Stack(children: [Widget1, Positioned(bottom: 16, child: Widget2)]) - для наложения виджетов
  * 
  * FutureBuilder(future: weatherFuture, builder: (context, snapshot) {
  *   if (snapshot.connectionState == ConnectionState.waiting) return CircularProgressIndicator();
@@ -118,5 +149,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
  * API: https://wttr.in/$city?format=j1
  * data['current_condition'][0]['temp_C'] - температура
  * data['current_condition'][0]['weatherDesc'][0]['value'] - описание
- * data['current_condition'][0]['weatherIconUrl'][0]['value'] - URL иконки
+ * 
+ * ИКОНКА:
+ * Используйте функцию _getWeatherIcon(description) для получения иконки.
+ * Используйте Icon виджет для отображения иконки.
  */
