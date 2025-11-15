@@ -2,74 +2,128 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-/*
- * ЗАДАНИЕ: Приложение "Погода"
- * 
- * Создайте приложение для отображения погоды.
- * 
- * 1. Реализуйте fetchWeather() для получения данных из API wttr.in
- * 2. Создайте layout используя: Column, Row, Expanded/Flexible, SizedBox, Text, Image, FutureBuilder, Stack
- * 3. Отобразите: город, иконку, температуру, описание
- *    - Используйте Row для горизонтальной компоновки информации о погоде (иконка и температура)
- * 4. Добавьте кнопку обновления внизу экрана используя Stack
- * 
- * ВАЖНО: Не допускайте большую вложенность виджетов. Выносите компоненты 
- * в отдельные виджеты (StatelessWidget или отдельные методы).
- * 
- * ДОПОЛНИТЕЛЬНОЕ ЗАДАНИЕ 1: Scrollable list
- * Создайте прокручиваемый список с данными о погоде для трех городов:
- * Москва, Париж, Лондон. Используйте ListView или ListView.builder.
- * 
- * ДОПОЛНИТЕЛЬНОЕ ЗАДАНИЕ 2: Theme
- * Используйте Theme для настройки темы приложения (цвета, стили текста).
- * Добавьте переключатель между светлой и темной темой.
- * 
- * ПОДСКАЗКИ см. внизу файла
- */
-
 void main() {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+
+Future<Map<String, dynamic>> fetchWeather(String city) async {
+  final url = Uri.parse('https://wttr.in/$city?format=j1');
+  final r = await http.get(url);
+
+  if (r.statusCode != 200) {
+    throw Exception('Ошибка загрузки');
+  }
+
+  return jsonDecode(r.body);
+}
+
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  bool _isDark = false;
+
+  void _toggleTheme() {
+    setState(() {
+      _isDark = !_isDark;
+    });
+  }
+
+  ThemeData _buildTheme(
+    Color seedColor, {
+    Brightness brightness = Brightness.light,
+  }) {
+    final base = ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: brightness,
+      ),
+      useMaterial3: true,
+    );
+
+    return base.copyWith(
+      appBarTheme: base.appBarTheme.copyWith(
+        centerTitle: true,
+        elevation: 0,
+      ),
+      cardTheme: base.cardTheme.copyWith(
+        elevation: 2,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+      ),
+      textTheme: base.textTheme.copyWith(
+        headlineMedium: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+        ),
+        titleMedium: const TextStyle(fontSize: 18),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Погода',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
+      debugShowCheckedModeBanner: false,
+      themeMode: _isDark ? ThemeMode.dark : ThemeMode.light,
+      theme: _buildTheme(Colors.blue, brightness: Brightness.light),
+      darkTheme: _buildTheme(
+        Colors.deepPurple,
+        brightness: Brightness.dark,
       ),
-      home: const WeatherScreen(),
+      home: WeatherScreen(
+        onToggleTheme: _toggleTheme,
+        isDark: _isDark,
+      ),
     );
   }
 }
 
 class WeatherScreen extends StatefulWidget {
-  const WeatherScreen({super.key});
+  final VoidCallback onToggleTheme;
+  final bool isDark;
+
+  const WeatherScreen({
+    super.key,
+    required this.onToggleTheme,
+    required this.isDark,
+  });
 
   @override
   State<WeatherScreen> createState() => _WeatherScreenState();
 }
 
 class _WeatherScreenState extends State<WeatherScreen> {
+  final List<String> cities = ["Moscow", "Paris", "London"];
+
   String city = 'Moscow';
   Future<Map<String, dynamic>>? weatherFuture;
+
+  final Map<String, Future<Map<String, dynamic>>> _cityWeatherFutures = {};
 
   @override
   void initState() {
     super.initState();
-    // TODO: Инициализируйте weatherFuture
+    _loadWeather();
   }
 
-  // TODO: Реализуйте функцию для получения данных о погоде
-  Future<Map<String, dynamic>> fetchWeather() async {
-    throw UnimplementedError();
+  void _loadWeather() {
+    setState(() {
+      for (final c in cities) {
+        _cityWeatherFutures[c] = fetchWeather(c);
+      }
+      weatherFuture = _cityWeatherFutures[city];
+    });
   }
 
-  // Функция для выбора иконки в зависимости от описания погоды
   IconData _getWeatherIcon(String description) {
     final desc = description.toLowerCase();
     if (desc.contains('sunny') || desc.contains('clear')) {
@@ -91,66 +145,438 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mainTextColor = isDark ? Colors.white : Colors.black87;
+
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: const Text(
-          'Погода',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+  body: SafeArea(
+    child: Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primaryContainer.withOpacity(0.6),
+            colorScheme.surface,
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
       ),
-      body: Column(
+      child: Column(
         children: [
-          // TODO: Expanded с FutureBuilder для отображения данных о погоде
-          // Используйте Stack для размещения кнопки внизу поверх контента
-          Expanded(
-            child: Stack(
-              children: [
-                // TODO: FutureBuilder с данными о погоде
-                Center(
-                  child: Text('Здесь будет FutureBuilder'),
-                ),
-                // TODO: Кнопка обновления внизу экрана используя Positioned
-              ],
+          AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            foregroundColor: mainTextColor,
+            title: const Text(
+              'Погода',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
+            actions: [
+              IconButton(
+                onPressed: widget.onToggleTheme,
+                icon: Icon(
+                  widget.isDark ? Icons.dark_mode : Icons.light_mode,
+                ),
+              ),
+            ],
           ),
-        ],
+
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: Column(
+                    children: [
+                      CitySelectorRow(
+                        cities: cities,
+                        selectedCity: city,
+                        onCityChanged: (value) {
+                          setState(() {
+                            city = value;
+                            weatherFuture = _cityWeatherFutures[city];
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            FutureBuilder<Map<String, dynamic>>(
+                              future: weatherFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+
+                                if (snapshot.hasError) {
+                                  return Center(
+                                    child: Text(
+                                      'Ошибка: ${snapshot.error}',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: mainTextColor),
+                                    ),
+                                  );
+                                }
+
+                                if (!snapshot.hasData) {
+                                  return Center(
+                                    child: Text(
+                                      'Нет данных',
+                                      style: TextStyle(color: mainTextColor),
+                                    ),
+                                  );
+                                }
+
+                                final data = snapshot.data!;
+                                final current = data['current_condition'][0];
+                                final temp = current['temp_C'] as String;
+                                final desc = current['weatherDesc'][0]['value']
+                                    as String;
+
+                                final otherCities = cities
+                                    .where((c) => c != city)
+                                    .toList(growable: false);
+
+                                return SingleChildScrollView(
+                                  padding:
+                                      const EdgeInsets.only(bottom: 80.0),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Card(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(16.0),
+                                          child: _MainCityWeather(
+                                            city: city,
+                                            tempC: temp,
+                                            description: desc,
+                                            icon: _getWeatherIcon(desc),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 24),
+                                      Text(
+                                        'Погода в других городах',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: mainTextColor,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        height: 200,
+                                        child: ListView.separated(
+                                          itemCount: otherCities.length,
+                                          separatorBuilder: (_, __) =>
+                                              const SizedBox(height: 4),
+                                          itemBuilder: (context, index) {
+                                            final otherCity =
+                                                otherCities[index];
+                                            final future =
+                                                _cityWeatherFutures[otherCity];
+                                            if (future == null) {
+                                              return Text(
+                                                '$otherCity: нет данных',
+                                                style: TextStyle(
+                                                    color: mainTextColor),
+                                              );
+                                            }
+                                            return OtherCityWeatherCard(
+                                              city: otherCity,
+                                              getWeatherIcon: _getWeatherIcon,
+                                              weatherFuture: future,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: Center(
+                                child: FilledButton.icon(
+                                  onPressed: _loadWeather,
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Обновить'),
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-/*
- * ПОДСКАЗКИ:
- * 
- * ВИДЖЕТЫ КОМПОНОВКИ:
- * Column(children: [...]), Row(children: [...]), Expanded(child: Widget), Flexible(flex: 1, child: Widget)
- * SizedBox(height: 24), Text('Текст'), Image.network('https://...', width: 100, height: 100)
- * Stack(children: [Widget1, Positioned(bottom: 16, child: Widget2)]) - для наложения виджетов
- * 
- * FutureBuilder(future: weatherFuture, builder: (context, snapshot) {
- *   if (snapshot.connectionState == ConnectionState.waiting) return CircularProgressIndicator();
- *   if (snapshot.hasError) return Text('Ошибка');
- *   if (snapshot.hasData) { final data = snapshot.data; /* отобразите данные */ }
- * })
- * 
- * SCROLLABLE LIST:
- * ListView(children: [Widget1, Widget2, Widget3])
- * ListView.builder(itemCount: cities.length, itemBuilder: (context, index) { ... })
- * 
- * THEME:
- * ThemeData(
- *   colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
- *   textTheme: TextTheme(headlineLarge: TextStyle(fontSize: 32)),
- * )
- * Theme.of(context).colorScheme.primary
- * Theme.of(context).textTheme.headlineLarge
- * 
- * API: https://wttr.in/$city?format=j1
- * data['current_condition'][0]['temp_C'] - температура
- * data['current_condition'][0]['weatherDesc'][0]['value'] - описание
- * 
- * ИКОНКА:
- * Используйте функцию _getWeatherIcon(description) для получения иконки.
- * Используйте Icon виджет для отображения иконки.
- */
+class CitySelectorRow extends StatelessWidget {
+  final List<String> cities;
+  final String selectedCity;
+  final ValueChanged<String> onCityChanged;
+
+  const CitySelectorRow({
+    super.key,
+    required this.cities,
+    required this.selectedCity,
+    required this.onCityChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    final labelStyle =
+        Theme.of(context).textTheme.titleMedium?.copyWith(color: textColor);
+
+    return Row(
+      children: [
+        Text(
+          'Город:',
+          style: labelStyle,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: selectedCity,
+                underline: const SizedBox.shrink(),
+                items: cities
+                    .map(
+                      (c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(
+                          c,
+                          style: TextStyle(color: textColor),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  onCityChanged(value);
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class OtherCityWeatherCard extends StatelessWidget {
+  final String city;
+  final IconData Function(String) getWeatherIcon;
+  final Future<Map<String, dynamic>> weatherFuture;
+
+  const OtherCityWeatherCard({
+    super.key,
+    required this.city,
+    required this.getWeatherIcon,
+    required this.weatherFuture,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    return Card(
+      color: colorScheme.surfaceVariant.withOpacity(0.9),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: FutureBuilder<Map<String, dynamic>>(
+          future: weatherFuture,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return Row(
+                children: [
+                  const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(city, style: TextStyle(color: textColor)),
+                ],
+              );
+            }
+
+            if (snap.hasError) {
+              return Text(
+                '$city: ошибка загрузки',
+                style: TextStyle(color: textColor),
+              );
+            }
+
+            if (!snap.hasData) {
+              return Text(
+                '$city: нет данных',
+                style: TextStyle(color: textColor),
+              );
+            }
+
+            final current = snap.data!['current_condition'][0];
+            final temp = current['temp_C'] as String;
+            final desc = current['weatherDesc'][0]['value'] as String;
+
+            return Row(
+              children: [
+                Icon(
+                  getWeatherIcon(desc),
+                  size: 28,
+                  color: textColor,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        city,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        desc,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: textColor.withOpacity(0.85),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$temp°C',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _MainCityWeather extends StatelessWidget {
+  final String city;
+  final String tempC;
+  final String description;
+  final IconData icon;
+
+  const _MainCityWeather({
+    super.key,
+    required this.city,
+    required this.tempC,
+    required this.description,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.black87;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          city,
+          style: textTheme.headlineMedium?.copyWith(color: textColor),
+        ),
+
+        const SizedBox(height: 16),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 64, color: textColor),
+            const SizedBox(width: 16),
+            Text(
+              '$tempC°C',
+              style: textTheme.displaySmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        Text(
+          description,
+          textAlign: TextAlign.center,
+          style: textTheme.titleMedium?.copyWith(
+            color: textColor.withOpacity(0.85),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+          width: double.infinity,
+          height: 240,
+          child: Image.network(
+          'https://wttr.in/${city}_0.png?m',
+          fit: BoxFit.contain,
+          alignment: Alignment.topCenter,
+            ),
+          ),
+        )
+      ],
+    );
+  }
+}
+
+
+
